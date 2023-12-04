@@ -1,5 +1,3 @@
 {
-    "rust-analyzer.linkedProjects": [
-        ".\\day_01\\Cargo.toml"
-    ]
+    "rust-analyzer.cargo.sysroot": "discover"
 }
