@@ -1,8 +1,4 @@
-use std::fs;
-
-fn get_file() -> String {
-    return fs::read_to_string("input.txt").expect("Unable to read file");
-}
+use aoc::general::open_file;
 
 fn solve_part1(input: String) -> u32 {
     let mut calibration: u32 = 0;
@@ -84,10 +80,10 @@ fn solve_part2(input: String) -> u32 {
 }
 
 fn main() {
-    let input = get_file();
+    let input = open_file("input.txt");
     solve_part1(input);
     
-    let input = get_file();
+    let input = open_file("input.txt");
     solve_part2(input);
 }
 
