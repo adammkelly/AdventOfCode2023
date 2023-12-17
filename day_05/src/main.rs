@@ -1,5 +1,6 @@
 use aoc::general::open_file;
-use std::{collections::BTreeMap, iter::zip};
+use std::collections::BTreeMap;
+use indicatif::ProgressIterator;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[derive(Ord, Eq)]
@@ -49,7 +50,7 @@ impl SoilItemMap {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Seeds {
     parsed_type: ParserState,
     number: u64
@@ -104,18 +105,6 @@ pub fn parser_soil_item(parsed_type: ParserState, input: &str, rev: bool) -> Soi
         dest_range_start,
         range_length
     }
-}
-
-pub fn get_map_range(map: &SoilItemMap) -> Vec<(u64, u64)> {
-    let start = map.source_range_start;
-    let end = map.source_range_start + map.range_length;
-    let dest = map.dest_range_start.clone();
-    let dest_end = map.dest_range_start + map.range_length;
-    let list_of_source: Vec<u64> = (start..end).collect();
-    let list_of_dest:  Vec<u64> = (dest..dest_end).collect();
-    let list_of_items: Vec<(u64, u64)> = zip(list_of_source.clone().into_iter(), list_of_dest.into_iter()).collect();
-    list_of_items
-
 }
 
 pub fn generate_global_hashmap(map_items: &Vec<SoilItemMap>) -> BTreeMap<ParserState, Vec<SoilItemMap>> {
@@ -221,8 +210,31 @@ fn solve_part1(input: String) -> u64 {
 
 fn solve_part2(input: String) -> u64 {
     let mut total: u64 = u64::MAX;
-    // TODO: Revisit
+    // TODO: Revisit for a different approach, currently brute force
+    // Use --release to speed up the process.
+    let (seeds, maps) = input_generator(&input, false);
+    let global_hashmap: BTreeMap<ParserState, Vec<SoilItemMap>> = generate_global_hashmap(&maps);
+    let seeds_mesh= seeds.chunks(2).map(|c| (c[0],c[1]));
 
+    for (s1, s2) in seeds_mesh.progress() {
+        let _s_range = (s1.number..(s1.number+s2.number)).clone().into_iter().collect::<Vec<u64>>();
+        for _s in _s_range.iter().progress() {
+            let mut start = *_s;
+            for tree_pos in PARSER_ORDER {
+                // Get from map and pass on as key to next one.
+                // Also return the number as passed in if not found.
+                start = get_next_value(&global_hashmap, tree_pos, start);
+            }
+
+            if start < total {
+                println!("Total: {start}");
+                total = start;
+            }
+        }
+    }
+
+    // 1240035 is the answer but we are off by 1 (1240036)
+    // Need to understand why
     println!("Part 2 Total: {total}");
     total
 }
