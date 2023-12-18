@@ -27,6 +27,7 @@ impl PartialOrd for Hand {
             return Some(Ordering::Greater)
         }
 
+        // println!("{:?} = {:?}", self.individual_rank, other.individual_rank);
         // Overall rank matches. Lets compare cards.
         for (pos, card) in self.individual_rank.iter().enumerate() {
             let other_card = other.individual_rank[pos];
@@ -43,12 +44,17 @@ impl PartialOrd for Hand {
 }
 
 
-fn card_rank(card: &char) -> u64 {
+fn card_rank(card: &char, replace_j: bool) -> u64 {
     match card {
         'A' => 14,
         'K' => 13,
         'Q' => 12,
-        'J' => 11,
+        'J' => {
+            if replace_j {
+                return 1
+            }
+            return 11
+        },
         'T' => 10,
         '9' => 9,
         '8' => 8,
@@ -58,11 +64,12 @@ fn card_rank(card: &char) -> u64 {
         '4' => 4,
         '3' => 3,
         '2' => 2,
-        _ => panic!("Unknown high card!")
+        '1' => 1,
+        _ => panic!("Unknown high card! {card}")
     }
 }
 
-fn card_type(vec_list: &Vec<(&char, &u64)>) -> u64 {
+fn card_type(vec_list: &Vec<(char, u64)>, replace_j: bool) -> u64 {
     let mut pairs = 0;
     let mut high_card = vec![];
     for (ind, (char, count)) in vec_list.iter().enumerate() {
@@ -71,7 +78,7 @@ fn card_type(vec_list: &Vec<(&char, &u64)>) -> u64 {
             4 => return 6,
             3 => {
                 let expected: u64 = 2;
-                if vec_list[ind+1].1 == &expected {
+                if vec_list[ind+1].1 == expected {
                     return 5
                 }
                 return 4
@@ -82,7 +89,7 @@ fn card_type(vec_list: &Vec<(&char, &u64)>) -> u64 {
             },
             1 => {
                 // Potentially high card.
-                high_card.push(card_rank(&char));
+                high_card.push(card_rank(&char, replace_j));
                 continue;
             }
             _ => panic!("Unknown high card!")
@@ -110,31 +117,66 @@ fn card_type(vec_list: &Vec<(&char, &u64)>) -> u64 {
     return 1
 }
 
-fn parse_line(input: &str) -> Vec<Hand> {
+fn get_char_count(cards_vec: &Vec<char>) -> Vec<(char, u64)> {
+    let mut hmap: BTreeMap<char, u64> = BTreeMap::new();
+
+    for c in cards_vec {
+        if hmap.contains_key(&c) {
+            let val = hmap.get(&c).unwrap();
+            hmap.insert(*c, val + 1);
+        } else {
+            hmap.insert(*c, 1);
+        }
+    }
+    let mut all_items = Vec::from_iter(hmap.clone());
+    all_items.sort_by(|a, b| a.1.cmp(&b.1));
+    all_items.reverse();
+    return all_items
+}
+
+fn get_individual_ranks(cards_vec: Vec<char>, replace_j: bool) -> Vec<u64> {
+    let mut individual_rank = vec![];
+
+    for (index, c) in cards_vec.iter().enumerate() {
+        let rank = card_rank(c, replace_j);
+        individual_rank.insert(index, rank);
+    }
+    return individual_rank
+}
+
+fn parse_line(input: &str, replace_j: bool) -> Vec<Hand> {
     let mut hands = vec![];
     let lines = input.split('\n');
     for l in lines {
+        let mut overall_rank = 0;
         let (cards, bid) = l.split_once(' ').unwrap();
+        let mut new_cards = cards.to_string().clone();
+        if replace_j {
+            let cards_vec = cards.chars().collect::<Vec<char>>();
+            let char_count = get_char_count(&cards_vec.clone());
+            let mut curr_count = 0;
+            let mut current_char: char = 'J';
+            for (c, count) in char_count {
+                let rank = card_rank(&c, true);
+                if count > curr_count && rank > card_rank(&current_char, replace_j) {
+                    curr_count = count;
+                    current_char = c;
+                }
+            }
+            let val = current_char.to_string().clone();
+            // Replace J in cards
+            new_cards = new_cards.replacen('J', &val, 5);
+            let cards_vec = new_cards.chars().collect::<Vec<char>>();
+            let char_count = get_char_count(&cards_vec.clone());
+            overall_rank = card_type(&char_count, replace_j);
+        }
         let cards_vec = cards.chars().collect::<Vec<char>>();
         let bid_64 = bid.trim().parse::<u64>().unwrap();
-        let mut individual_rank = vec![];
-
-        let mut hmap: BTreeMap<char, u64> = BTreeMap::new();
-
-        for (index, c) in cards_vec.iter().enumerate() {
-            let rank = card_rank(c);
-            if hmap.contains_key(&c) {
-                let val = hmap.get(&c).unwrap();
-                hmap.insert(*c, val + 1);
-            } else {
-                hmap.insert(*c, 1);
-            }
-            individual_rank.insert(index, rank);
+        let individual_rank = get_individual_ranks(cards_vec.clone(), replace_j);
+        let char_count = get_char_count(&cards_vec.clone());
+        if !replace_j {
+            overall_rank = card_type(&char_count, replace_j);
         }
-        let mut all_items = Vec::from_iter(hmap.iter());
-        all_items.sort_by(|a, b| a.1.cmp(&b.1));
-        all_items.reverse();
-        let overall_rank = card_type(&all_items);
         hands.push(Hand { cards: cards_vec, bid: bid_64, overall_rank, individual_rank });
     }
     hands.sort_by(|a, b| a.cmp(&b));
@@ -142,13 +184,13 @@ fn parse_line(input: &str) -> Vec<Hand> {
     hands
 }
 
-pub fn input_generator(input: &str) -> Vec<Hand> {
-    parse_line(input)
+pub fn input_generator(input: &str, replace_j: bool) -> Vec<Hand> {
+    parse_line(input, replace_j)
 }
 
 fn solve_part1(input: &str) -> u64 {
     let mut total: u64 = 0;
-    let input = input_generator(input);
+    let input = input_generator(input, false);
 
     for (ind, card) in input.iter().enumerate() {
         let index = ind as u64 +1;
@@ -162,7 +204,14 @@ fn solve_part1(input: &str) -> u64 {
 
 fn solve_part2(input: &str) -> u64 {
     let mut total: u64 = 0;
+    let input = input_generator(input, true);
 
+    for (ind, card) in input.iter().enumerate() {
+        let index = ind as u64 +1;
+        total += card.bid * index;
+    }
+
+    // Expecting 252113488
     println!("Part 2 Total: {total}");
     total
 }
@@ -194,5 +243,14 @@ QQQJA 483";
     #[test]
     fn sample_02() {
         assert_eq!(solve_part2(DATA), 5905)
+    }
+
+    const DATA_JOKER: &str = "JAAKK 1
+JJJAK 2";
+
+
+    #[test]
+    fn sample_03() {
+        assert_eq!(solve_part2(DATA_JOKER), 5)
     }
 }
