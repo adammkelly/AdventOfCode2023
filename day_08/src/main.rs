@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap};
 
 use aoc::general::open_file;
+use aoc::math::lcm;
 
 #[derive(Debug)]
 pub struct Node<'a>{
@@ -14,7 +15,6 @@ fn locate_node<'a>(tree: &'a BTreeMap<&str, Node>, label: &str) -> Option<&'a No
 }
 
 fn move_to<'a>(n: &'a Node<'a>, step: &char) -> &'a str {
-    // println!("{step}");
     match step {
         'L' => return n.left,
         'R' => return n.right,
@@ -37,10 +37,8 @@ fn parse_line(input: &str) -> (BTreeMap<&str, Node<'_>>, Vec<char>) {
         lines = input.split(inst_delim);
     }
     let str_collection = lines.clone().collect::<Vec<&str>>();
-    // println!("{:?}", str_collection);
     let instructions = str_collection[0].trim().chars().collect::<Vec<char>>();
     let direction_nodes = str_collection[1];
-    // println!("{:?}", instructions);
     for l in direction_nodes.split(node_delim) {
         let node_split = l.split(" = ").collect::<Vec<&str>>();
         let label = node_split[0].trim();
@@ -64,12 +62,9 @@ fn solve_part1(input: &str) -> u64 {
     }
 
     let end = "ZZZ";
-    // println!("{:?}", input);
 
     for m in &total_moves {
-        // println!("{start} = {:?} - {total}", total_moves.len());
         let node = locate_node(&input, start).unwrap();
-        // println!("# {:?}", node);
         let _move_to = move_to(node, m);
         total += 1;
         if _move_to == end {
@@ -82,50 +77,37 @@ fn solve_part1(input: &str) -> u64 {
     total
 }
 
-fn solve_part2(input: &str) -> u64 {
-    let mut total: u64 = 0;
+fn solve_part2(input: &str) -> i64 {
     let (input, moves) = input_generator(input);
-    let mut start_points = input.keys().filter(|&s| s.ends_with('A')).cloned().collect::<Vec<&str>>();
-    println!("{:?}", start_points);
+    let start_points = input.keys().filter(|&s| s.ends_with('A')).cloned().collect::<Vec<&str>>();
     let total_moves: Vec<_> = moves.clone();
+    let mut steps = vec![];
     let mut pos: usize = 0;
 
-    // println!("{:?}", input);
     
-    'outer: while total != u64::MAX {
-        let mut new_start_points = vec![];
+    for s in start_points {
         let mut count = 0;
-        let m = total_moves.get(pos).unwrap();
-        if (total % 10000) == 0 {
-            println!("--- {total}");
-        }
-        for s in &start_points {
+        let mut start = s;
 
-            //println!("{s} = {:?} - {total}", total_moves.len());
-            // let node = locate_node(&input, s).unwrap();
-            // println!("# {:?}", node);
-            let node = &input[s];
+        while !start.ends_with('Z') {
+            let m = total_moves.get(pos).unwrap();
+
+            let node = &input[start];
             let _move_to = move_to(node, m);
-            // println!("{total}");
-            if _move_to.ends_with('Z') {
-                count += 1;
-                if count == start_points.len() {
-                    total += 1;
-                    break 'outer;
-                }
+            start = _move_to;
+
+            if pos == total_moves.len()-1 {
+                pos = 0;
+            } else {
+                pos += 1;
             }
-            new_start_points.push(_move_to);
+            count += 1;
         }
-        start_points = new_start_points;
-        total += 1;
-        if pos == total_moves.len()-1 {
-            pos = 0;
-        } else {
-            pos += 1;
-        }
+        steps.push(count);
     }
 
-    // Expecting 9606140307013 (this solution is too slow)
+    let total: i64 = steps.iter().fold(1, |acc, s| lcm(acc, *s));
+    // Expecting 9606140307013
     println!("Part 2 Total: {total}");
     total
 }
